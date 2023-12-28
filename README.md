@@ -1,5 +1,3 @@
-# Dockerized WebCrawler Application 
-
 # Description
 Dockerized WebCrawler application guide.
 

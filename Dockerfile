@@ -1,4 +1,3 @@
-# Dockerfile, Image, Container
 FROM python:3.10.4
 
 ADD main.py .

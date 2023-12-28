@@ -1,52 +1,64 @@
+import os
 import random
 import requests
+import logging
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 
-# crawl IMDB Top 250 and randomly select a movie
+# Load environment variables from .env file
+load_dotenv()
+logging.basicConfig(level=logging.INFO)
 
-#how about we use a .env file to get the url instead of plainly stating it in the main code
-URL = 'http://www.imdb.com/chart/top'
-
-#this function aims to scrap the endpoint and fetch the content and the
-def main():
-    #firstly we ping the url and then save the response into the response variable
-    response = requests.get(URL)
-
-    soup = BeautifulSoup(response.text, 'html.parser')
-    #we curtail the response by parsing it to the BeautifulSoup method with the mode, html.parser
-    #soup = BeautifulSoup(response.text, 'lxml') # faster
-
-    # print(soup.prettify())
-
-    #with the movie tags_variable we are selecting
+def fetch_top_movies(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status() #Raises an error for bad responses
+        soup = BeautifulSoup(response.text, 'html.parser')
+        return soup
+    except requests.RequestException as e:
+        logging.error(f"Error fetching data from {url}: {e}")
+        return None
+    
+def get_movies_info(soup):
     movietags = soup.select('td.titleColumn')
-
     inner_movietags = soup.select('td.titleColumn a')
     ratingtags = soup.select('td.posterColumn span[name=ir]')
 
     def get_year(movie_tag):
-        moviesplit = movie_tag.text.split() #splits the movie names into a list
-        year = moviesplit[-1] #we can access the year at the end of the movie split lists
+        moviesplit = movie_tag.text.split()
+        year = moviesplit[-1]
         return year
 
     years = [get_year(tag) for tag in movietags]
-    actors_list =[tag['title'] for tag in inner_movietags] # access attribute 'title'
+    actors_list = [tag['title'] for tag in inner_movietags]
     titles = [tag.text for tag in inner_movietags]
-    ratings = [float(tag['data-value']) for tag in ratingtags] # access attribute 'data-value'
+    ratings = [float(tag['data-value']) for tag in ratingtags]
 
+    return titles, years, actors_list, ratings
+
+def main():
+    # Access the SITE_URL directly from the environment variables
+    url = os.getenv('SITE_URL')
+
+    soup = fetch_top_movies(url)
+    if soup is None:
+        print("Failed to fetch data. Check the URL and your internet connection.")
+        return
+    
+    titles, years, actors_list, ratings = get_movies_info(soup)
     n_movies = len(titles)
 
-    #we also implement this feature where we are able to suggest random movies
-    while(True):
+    while True:
         idx = random.randrange(0, n_movies)
-        
-        print(f'{titles[idx]} {years[idx]}, Rating: {ratings[idx]:.1f}, Starring: {actors_list[idx]}')
+        print(f"{titles[idx]} {years[idx]}, Rating: {ratings[idx]:.1f}, Starring: {actors_list[idx]}")
 
-        #user input to prevent script from running perpetually
         user_input = input('Do you want another movie (y/[n])? ')
-        if user_input != 'y':
+        if user_input.lower() != 'y':
             break
-    
-#python idiom that is going to run the main function in the advent that the 
+
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        logging.exception(f"An unexpected error occured: {e}")
+        exit(1) #Exit with a non-zero code to indicate an error
